@@ -2,6 +2,12 @@ import numpy as np
 import random
 import matplotlib.pyplot as plt
 import pandas as pd
+import copy
+
+def mae(prediction, target):
+    """Calculate Mean Absolute Error."""
+    return np.mean(np.abs(prediction - target))
+
 
 def create_initial_genome(input_size=10, output_size=10, initial_connections=20):
     """
@@ -33,31 +39,6 @@ def create_initial_genome(input_size=10, output_size=10, initial_connections=20)
 
     return genome
 
-# def select_best_genomes(genome_population, fitness_scores, num_to_select=5):
-#     """
-#     Select the best genomes based on fitness scores.
-
-#     Args:
-#     - genome_population (list): The current population of genomes.
-#     - fitness_scores (list): The fitness scores corresponding to the genomes.
-#     - num_to_select (int): The number of top genomes to select.
-
-#     Returns:
-#     - selected_genomes (list): The top-performing genomes based on fitness scores.
-#     """
-    
-#     # Pair each genome with its fitness score
-#     scored_genomes = list(zip(genome_population, fitness_scores))
-    
-#     # Sort the list of tuples based on fitness scores in ascending order
-#     # since lower scores may indicate better performance (e.g., lower error is better)
-#     scored_genomes.sort(key=lambda x: x[1])
-    
-#     # Select the top-performing genomes
-#     selected_genomes = [genome for genome, score in scored_genomes[:num_to_select]]
-    
-#     return selected_genomes
-
 def select_best_genomes(genome_population, fitness_scores, num_to_select=5, elitism_factor=0.1):
     """
     Select the best genomes based on fitness scores and include elitism.
@@ -74,7 +55,9 @@ def select_best_genomes(genome_population, fitness_scores, num_to_select=5, elit
     
     num_elites = int(elitism_factor * len(genome_population))
     scored_genomes = list(zip(genome_population, fitness_scores))
-    scored_genomes.sort(key=lambda x: x[1])
+    #scored_genomes.sort(key=lambda x: x[1])
+    # Sort based on the 'rmse' value of the fitness score dictionaries
+    scored_genomes.sort(key=lambda x: x[1]['rmse'])
 
     # Elitism: directly carry over a proportion of the best genomes
     elite_genomes = [genome for genome, score in scored_genomes[:num_elites]]
@@ -103,39 +86,10 @@ def mutate(genome, mutation_rate, num_input_nodes, num_output_nodes):
     return genome
 
 
-# def reproduce(selected_genomes, population_size, mutation_rate, num_input_nodes, num_output_nodes):
-#     """
-#     Create a new generation of genomes from the selected ones.
-
-#     Args:
-#     - selected_genomes (list): Genomes selected based on fitness.
-#     - population_size (int): The size of the population to maintain.
-#     - mutation_rate (float): The probability of mutating a gene.
-
-#     Returns:
-#     - new_population (list): A new population of genomes.
-#     """
-#     new_population = []
-#     while len(new_population) < population_size:
-#         # Randomly select two parents from the selected genomes
-#         parent1, parent2 = random.sample(selected_genomes, 2)
-#         # Perform crossover to produce new children
-#         child1, child2 = crossover(parent1, parent2)
-#         # Mutate the children's genomes
-        
-#         child1 = mutate(child1, mutation_rate, num_input_nodes, num_output_nodes)
-#         child2 = mutate(child2, mutation_rate, num_input_nodes, num_output_nodes)
-    
-#         # Add the new children to the new population
-#         new_population.extend([child1, child2])
-#     # If the population size is odd, remove one genome
-#     if len(new_population) > population_size:
-#         new_population.pop()
-#     return new_population
 
 def reproduce(selected_genomes, population_size, mutation_rate, num_input_nodes, num_output_nodes, num_elites):
     """
-    Create a new generation of genomes from the selected ones, preserving elites.
+    Create a new generation of genomes from the selected ones, preserving elites and using mutation only (no crossover).
 
     Args:
     - selected_genomes (list): Genomes selected based on fitness, including elites.
@@ -151,29 +105,24 @@ def reproduce(selected_genomes, population_size, mutation_rate, num_input_nodes,
 
     # Start new population with the elite genomes unchanged
     new_population = selected_genomes[:num_elites]
-    
 
-        # Use a while loop to fill up the remaining spots in the population
+    # Use a while loop to fill up the remaining spots in the population
     while len(new_population) < population_size:
-        # Ensure that we don't pick elite genomes for reproduction
-        non_elite_genomes = random.sample(selected_genomes[num_elites:], 2)
-        parent1, parent2 = non_elite_genomes
+        # Randomly select a parent genome from the non-elite genomes for cloning
+        parent = random.choice(selected_genomes[num_elites:])
         
-        # Perform crossover to produce new children
-        child1, child2 = crossover(parent1, parent2)
+        # Clone and mutate the selected genome
+        child = mutate(copy.deepcopy(parent), mutation_rate, num_input_nodes, num_output_nodes)
         
-        # Mutate the children's genomes
-        child1 = mutate(child1, mutation_rate, num_input_nodes, num_output_nodes)
-        child2 = mutate(child2, mutation_rate, num_input_nodes, num_output_nodes)
-    
-        # Add the new children to the new population
-        new_population.extend([child1, child2])
+        # Add the new child to the new population
+        new_population.append(child)
         
         # Ensure the population does not exceed the desired size
         if len(new_population) > population_size:
             new_population = new_population[:population_size]
 
     return new_population
+
 
 
 
@@ -218,47 +167,65 @@ def log_generation_results(generation, selected_genomes, fitness_scores, log_fil
     - log_file (str): File path to save the log.
     """
 
+    # with open(log_file, "a") as file:
+    #     file.write(f"Generation {generation}\n")
+    #     file.write(f"Top Fitness Scores: {fitness_scores[:5]}\n")  # Logging top 5 fitness scores
+    #     file.write("Selected Genome Structures:\n")
+    #     for genome in selected_genomes:
+    #         file.write(f"{genome}\n")
+    #     file.write("\n")
     with open(log_file, "a") as file:
         file.write(f"Generation {generation}\n")
-        file.write(f"Top Fitness Scores: {fitness_scores[:5]}\n")  # Logging top 5 fitness scores
+        file.write(f"Best RMSE Score: {min(fitness_scores, key=lambda x: x['rmse'])['rmse']}\n")
+        file.write(f"Best MAE Score: {min(fitness_scores, key=lambda x: x['mae'])['mae']}\n")
         file.write("Selected Genome Structures:\n")
         for genome in selected_genomes:
             file.write(f"{genome}\n")
         file.write("\n")
 
-def analyze_results(log_file="evolution_log.txt"):
+
+def analyze_results(log_file, best_rmse_scores, best_mae_scores):
     """
-    Analyze the results from the evolutionary process.
+    Analyze and plot the results from the evolutionary process.
 
     Args:
     - log_file (str): File path of the saved log.
+    - best_rmse_scores (list): List of the best RMSE scores per generation.
+    - best_mae_scores (list): List of the best MAE scores per generation.
     """
-
+    # Read generations from the log file
     generations = []
-    fitness_scores = []
     with open(log_file, "r") as file:
         for line in file:
             if line.startswith("Generation"):
                 current_generation = int(line.strip().split(" ")[1])
-            if line.startswith("Top Fitness Scores:"):
-                scores_str = line.strip().split(": ")[1]
-                try:
-                    scores = [float(score.strip()) for score in scores_str.strip('[]').split(",")]
-                    top_score = min(scores)
-                    generations.append(current_generation)
-                    fitness_scores.append(top_score)
-                except ValueError as e:
-                    print(f"Error processing line: {line}. Error: {e}")
+                generations.append(current_generation)
+    
+    min_length = min(len(generations), len(best_rmse_scores), len(best_mae_scores))
+    
+    if min_length != len(generations):
+        print("Warning: Mismatch in the number of generations and recorded scores.")
+        generations = generations[:min_length]
+        best_rmse_scores = best_rmse_scores[:min_length]
+        best_mae_scores = best_mae_scores[:min_length]
+                    
+    # Print top RMSE and MAE scores per generation
+    for i in range(min_length):
+        print(f"Generation {generations[i]}: Best RMSE Score: {best_rmse_scores[i]}, Best MAE Score: {best_mae_scores[i]}")
 
     # Perform statistical analysis
-    mean_fitness = np.mean(fitness_scores)
-    print(f"Average top fitness score across generations: {mean_fitness}")
+    mean_rmse = np.mean(best_rmse_scores)
+    mean_mae = np.mean(best_mae_scores)
+    print(f"Average top RMSE score: {mean_rmse}")
+    print(f"Average top MAE score: {mean_mae}")
 
     # Plot fitness scores over generations
     plt.figure(figsize=(10, 6))
-    plt.plot(generations, fitness_scores, label='Top Fitness Score per Generation')
+    plt.plot(generations, best_rmse_scores, label='Best RMSE per Generation')
+    plt.plot(generations, best_mae_scores, label='Best MAE per Generation')
     plt.xlabel('Generation')
     plt.ylabel('Fitness Score')
-    plt.title('Evolution of Top Fitness Scores Over Generations')
+    plt.title('Evolution of Fitness Scores Over Generations')
     plt.legend()
     plt.show()
+
