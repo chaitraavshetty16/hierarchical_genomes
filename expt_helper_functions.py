@@ -4,10 +4,15 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import copy
 
+mutation_probability = 0.1  # 10% chance of mutation for each gene
+
 def mae(prediction, target):
     """Calculate Mean Absolute Error."""
     return np.mean(np.abs(prediction - target))
 
+def mse(prediction, target):
+    """Calculate Mean Squared Error."""
+    return np.mean((prediction - target)**2)
 
 def create_initial_genome(input_size=10, output_size=10, initial_connections=20):
     """
@@ -85,7 +90,30 @@ def mutate(genome, mutation_rate, num_input_nodes, num_output_nodes):
             genome[i] = mutate_gene(genome[i], num_input_nodes, num_output_nodes)
     return genome
 
+def mutate_hox(genome, mutation_rate):
+    """
+    Apply mutations to a genome using a nested list structure similar to Hox gene mutations.
+    """
+    def apply_mutation(subgenome):
+        # Base case: if subgenome is a connection gene, apply mutation
+        if isinstance(subgenome, list) and all(isinstance(item, int) or isinstance(item, float) for item in subgenome):
+            if random.random() < mutation_rate:
+                # Example mutation: small perturbation in the weight
+                weight_index = 2  # Assuming the weight is the third item in the gene
+                subgenome[weight_index] += np.random.uniform(-0.1, 0.1)
+            return subgenome
 
+        # Recursive case: apply mutation to sublists
+        mutated_subgenome = []
+        for item in subgenome:
+            if isinstance(item, list):
+                mutated_subgenome.append(apply_mutation(item))
+            else:
+                mutated_subgenome.append(item)
+        return mutated_subgenome
+
+    # Start the recursive mutation process
+    return apply_mutation(genome)
 
 def reproduce(selected_genomes, population_size, mutation_rate, num_input_nodes, num_output_nodes, num_elites):
     """
@@ -112,7 +140,9 @@ def reproduce(selected_genomes, population_size, mutation_rate, num_input_nodes,
         parent = random.choice(selected_genomes[num_elites:])
         
         # Clone and mutate the selected genome
-        child = mutate(copy.deepcopy(parent), mutation_rate, num_input_nodes, num_output_nodes)
+        #child = mutate(copy.deepcopy(parent), mutation_rate, num_input_nodes, num_output_nodes)
+        # Clone and apply Hox mutation to the selected genome
+        child = mutate_hox(copy.deepcopy(parent), mutation_probability)
         
         # Add the new child to the new population
         new_population.append(child)
@@ -122,9 +152,6 @@ def reproduce(selected_genomes, population_size, mutation_rate, num_input_nodes,
             new_population = new_population[:population_size]
 
     return new_population
-
-
-
 
 
 def mutate_gene(gene, num_input_nodes, num_output_nodes):
@@ -184,7 +211,7 @@ def log_generation_results(generation, selected_genomes, fitness_scores, log_fil
         file.write("\n")
 
 
-def analyze_results(log_file, best_rmse_scores, best_mae_scores):
+def analyze_results(log_file, best_rmse_scores, best_mae_scores, best_mse_scores):
     """
     Analyze and plot the results from the evolutionary process.
 
@@ -201,31 +228,80 @@ def analyze_results(log_file, best_rmse_scores, best_mae_scores):
                 current_generation = int(line.strip().split(" ")[1])
                 generations.append(current_generation)
     
-    min_length = min(len(generations), len(best_rmse_scores), len(best_mae_scores))
+    min_length = min(len(generations), len(best_rmse_scores), len(best_mae_scores), len(best_mse_scores))
     
     if min_length != len(generations):
         print("Warning: Mismatch in the number of generations and recorded scores.")
+        
         generations = generations[:min_length]
         best_rmse_scores = best_rmse_scores[:min_length]
         best_mae_scores = best_mae_scores[:min_length]
-                    
+        best_mse_scores = best_mse_scores[:min_length]
+    
+
     # Print top RMSE and MAE scores per generation
     for i in range(min_length):
-        print(f"Generation {generations[i]}: Best RMSE Score: {best_rmse_scores[i]}, Best MAE Score: {best_mae_scores[i]}")
+        if(i==0):
+            print(f"\n") 
+            print(f"Generation {generations[i]}: Best RMSE Score: {best_rmse_scores[i]}, Best MAE Score: {best_mae_scores[i]}, Best MSE Score: {best_mse_scores[i]}")
+        else:
+            print(f"Generation {generations[i]}: Best RMSE Score: {best_rmse_scores[i]}, Best MAE Score: {best_mae_scores[i]}, Best MSE Score: {best_mse_scores[i]}")
 
     # Perform statistical analysis
     mean_rmse = np.mean(best_rmse_scores)
     mean_mae = np.mean(best_mae_scores)
+    mean_mse = np.mean(best_mse_scores)
+    print(f"\n")
     print(f"Average top RMSE score: {mean_rmse}")
     print(f"Average top MAE score: {mean_mae}")
+    print(f"Average top MSE score: {mean_mse}")
 
     # Plot fitness scores over generations
     plt.figure(figsize=(10, 6))
     plt.plot(generations, best_rmse_scores, label='Best RMSE per Generation')
     plt.plot(generations, best_mae_scores, label='Best MAE per Generation')
+    plt.plot(generations, best_mse_scores, label='Best MSE per Generation')
     plt.xlabel('Generation')
     plt.ylabel('Fitness Score')
     plt.title('Evolution of Fitness Scores Over Generations')
     plt.legend()
     plt.show()
 
+
+# This is a modified version of the mutate function to incorporate nested list structure for mutations.
+def mutate_hox(genome, mutation_rate):
+    """
+    Apply mutations to a genome using a nested list structure similar to Hox gene mutations.
+    """
+    def apply_mutation(subgenome):
+        # Base case: if subgenome is a connection gene, apply mutation
+        if isinstance(subgenome, list) and all(isinstance(item, int) or isinstance(item, float) for item in subgenome):
+            if random.random() < mutation_rate:
+                # Apply some mutation logic here
+                pass  # Replace with actual mutation logic
+            return subgenome
+
+        # Recursive case: apply mutation to sublists
+        mutated_subgenome = []
+        for item in subgenome:
+            if isinstance(item, list):
+                mutated_subgenome.append(apply_mutation(item))
+            else:
+                mutated_subgenome.append(item)
+        return mutated_subgenome
+
+    # Start the recursive mutation process
+    return apply_mutation(genome)
+
+def calculate_diversity_score(genome_population):
+    # A simple example using Hamming distance
+    diversity_scores = []
+    for i, genome1 in enumerate(genome_population):
+        for j, genome2 in enumerate(genome_population):
+            if i < j:
+                diversity_scores.append(hamming_distance(genome1, genome2))
+    return np.mean(diversity_scores)
+
+def hamming_distance(genome1, genome2):
+    # Assuming genome1 and genome2 are of the same length and are lists of integers
+    return sum(g1 != g2 for g1, g2 in zip(genome1, genome2))
