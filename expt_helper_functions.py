@@ -3,6 +3,8 @@ import random
 import matplotlib.pyplot as plt
 import pandas as pd
 import copy
+import struct
+
 
 mutation_probability = 0.1  # 10% chance of mutation for each gene
 
@@ -61,16 +63,20 @@ def select_best_genomes(genome_population, fitness_scores, num_to_select=5, elit
     num_elites = int(elitism_factor * len(genome_population))
     scored_genomes = list(zip(genome_population, fitness_scores))
     #scored_genomes.sort(key=lambda x: x[1])
+    
     # Sort based on the 'rmse' value of the fitness score dictionaries
-    scored_genomes.sort(key=lambda x: x[1]['rmse'])
+    #scored_genomes.sort(key=lambda x: x[1]['rmse'])
 
     # Elitism: directly carry over a proportion of the best genomes
-    elite_genomes = [genome for genome, score in scored_genomes[:num_elites]]
+    #elite_genomes = [genome for genome, score in scored_genomes[:num_elites]]
 
     # Selection: select additional genomes based on fitness scores
-    selected_genomes = elite_genomes + [genome for genome, score in scored_genomes[num_elites:num_to_select+num_elites]]
+    #selected_genomes = elite_genomes + [genome for genome, score in scored_genomes[num_elites:num_to_select+num_elites]]
 
-    return selected_genomes
+    #return selected_genomes
+
+    scored_genomes = sorted(zip(genome_population, fitness_scores), key=lambda x: x[1]['rmse'])
+    return [genome for genome, _ in scored_genomes[:num_to_select]]
 
 
 def crossover(parent1, parent2):
@@ -96,7 +102,8 @@ def mutate_hox(genome, mutation_rate):
     """
     def apply_mutation(subgenome):
         # Base case: if subgenome is a connection gene, apply mutation
-        if isinstance(subgenome, list) and all(isinstance(item, int) or isinstance(item, float) for item in subgenome):
+        #if isinstance(subgenome, list) and all(isinstance(item, int) or isinstance(item, float) for item in subgenome):
+        if isinstance(subgenome, list) and all(isinstance(item, (int, float)) for item in subgenome):
             if random.random() < mutation_rate:
                 # Example mutation: small perturbation in the weight
                 weight_index = 2  # Assuming the weight is the third item in the gene
@@ -134,27 +141,40 @@ def reproduce(selected_genomes, population_size, mutation_rate, num_input_nodes,
     # Start new population with the elite genomes unchanged
     new_population = selected_genomes[:num_elites]
 
-    # Use a while loop to fill up the remaining spots in the population
-    while len(new_population) < population_size:
-        # Randomly select a parent genome from the non-elite genomes for cloning
-        parent = random.choice(selected_genomes[num_elites:])
-        
-        # Clone and mutate the selected genome
-        #child = mutate(copy.deepcopy(parent), mutation_rate, num_input_nodes, num_output_nodes)
-        # Clone and apply Hox mutation to the selected genome
-        child = mutate_hox(copy.deepcopy(parent), mutation_probability)
-        
-        # Add the new child to the new population
-        new_population.append(child)
-        
-        # Ensure the population does not exceed the desired size
-        if len(new_population) > population_size:
-            new_population = new_population[:population_size]
+    # Ensure there is at least one genome to select from, avoiding IndexError
+    if len(selected_genomes) > num_elites:
+        # Use a while loop to fill up the remaining spots in the population
+        while len(new_population) < population_size:
+            if len(selected_genomes) > num_elites:
+                # Randomly select a parent genome from the non-elite genomes for cloning
+                parent = random.choice(selected_genomes[num_elites:])
+                
+                # Clone and mutate the selected genome
+                #child = mutate(copy.deepcopy(parent), mutation_rate, num_input_nodes, num_output_nodes)
+                # Clone and apply Hox mutation to the selected genome
+                #child = mutate_hox(copy.deepcopy(parent), mutation_probability)
+                # Optionally mutate the parent or use mutate_hox directly on it
+                child = mutate_hox(random.choice([parent, mutate(copy.deepcopy(parent), mutation_rate, num_input_nodes, num_output_nodes)]), mutation_rate)
+                
+                
+                # Add the new child to the new population
+                new_population.append(child)
+                
+                # Ensure the population does not exceed the desired size
+                if len(new_population) > population_size:
+                    new_population = new_population[:population_size]
 
     return new_population
 
-
 def mutate_gene(gene, num_input_nodes, num_output_nodes):
+    mutation_type = random.choice(["weight_mutation", "structural_mutation"])
+    if mutation_type == "weight_mutation":
+        gene[2] += np.random.uniform(-0.5, 0.5)
+    else:
+        gene[0], gene[1] = random.randint(0, num_input_nodes - 1), random.randint(0, num_output_nodes - 1)
+    return gene
+
+def mutate_gene1(gene, num_input_nodes, num_output_nodes):
     """
     Mutate a single gene.
 
@@ -293,15 +313,81 @@ def mutate_hox(genome, mutation_rate):
     # Start the recursive mutation process
     return apply_mutation(genome)
 
+# def calculate_diversity_score(genome_population):
+#     # A simple example using Hamming distance
+#     diversity_scores = []
+#     for i, genome1 in enumerate(genome_population):
+#         for j, genome2 in enumerate(genome_population):
+#             if i < j:
+#                 diversity_scores.append(hamming_distance(genome1, genome2))
+#     return np.mean(diversity_scores)
+
+# More sophisticated diversity calculation
 def calculate_diversity_score(genome_population):
-    # A simple example using Hamming distance
     diversity_scores = []
     for i, genome1 in enumerate(genome_population):
         for j, genome2 in enumerate(genome_population):
             if i < j:
-                diversity_scores.append(hamming_distance(genome1, genome2))
+                # Convert genomes to binary strings or a suitable format for hamming distance
+                binary_genome1 = genome_to_binary(genome1)
+                binary_genome2 = genome_to_binary(genome2)
+                diversity_scores.append(hamming_distance(binary_genome1, binary_genome2))
     return np.mean(diversity_scores)
+
+def genome_to_binary(genome):
+    """
+    Convert genome to a binary string representation.
+    Each gene is assumed to be a list with numeric values, which are converted to binary format.
+    """
+    binary_genome = ""
+    for gene in genome:
+        for value in gene:
+            # Handle floating-point numbers
+            if isinstance(value, float):
+                # Convert float to binary representation
+                binary_value = float_to_binary(value)
+            else:
+                # Convert integers directly to binary
+                binary_value = format(value, 'b')
+            binary_genome += binary_value
+    return binary_genome
+
+def float_to_binary(num):
+    """Convert a float to a binary string."""
+    # Represent the float as a binary string
+    # Note: Adjust the precision as needed for your application
+    return ''.join('{:0>8b}'.format(c) for c in struct.pack('!f', num))
 
 def hamming_distance(genome1, genome2):
     # Assuming genome1 and genome2 are of the same length and are lists of integers
     return sum(g1 != g2 for g1, g2 in zip(genome1, genome2))
+
+def should_increase_timestep(current_generation, best_fitness_scores, stagnation_threshold, increment_interval):
+    """
+    Determine whether to increase the timestep based on stagnation of fitness improvement.
+
+    Args:
+    - current_generation (int): The current generation number.
+    - best_fitness_scores (list): List of best fitness scores from each generation.
+    - stagnation_threshold (int): Number of generations to wait with no improvement before increasing timestep.
+    - increment_interval (int): Interval at which to consider increasing timesteps.
+
+    Returns:
+    - (bool): True if it's time to increase timestep, False otherwise.
+    """
+    if current_generation % increment_interval != 0:
+        # Only check for timestep increment at specified intervals
+        return False
+    
+    # Check if there has been improvement in the last 'stagnation_threshold' generations
+    recent_generations = best_fitness_scores[-stagnation_threshold:]
+    if len(recent_generations) < stagnation_threshold:
+        # Not enough data to make a decision
+        return False
+
+    # Check if there's been any improvement
+    if all(score >= recent_generations[0] for score in recent_generations):
+        # No improvement, so increase timestep
+        return True
+
+    return False

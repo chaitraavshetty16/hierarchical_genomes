@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import copy
 
 # Import functions from helper file
-from expt_helper_functions import create_initial_genome, select_best_genomes, reproduce, log_generation_results, analyze_results,mae,mse,calculate_diversity_score
+from expt_helper_functions import create_initial_genome, select_best_genomes, reproduce, log_generation_results, analyze_results,mae,mse,calculate_diversity_score, should_increase_timestep
 
 # Set up the main parameters
 population_size = 100 #50
@@ -39,10 +39,10 @@ num_elites = int(elitism_factor * population_size)
 
 
 
+
+
 # Initialize your population
 genome_population = [create_initial_genome() for _ in range(population_size)]
-
-
 
 # Define a fitness evaluation function
 def evaluate_fitness(genome):
@@ -85,9 +85,22 @@ stagnation_threshold = 10  # Number of generations without improvement
 stagnation_counter = 0  # Counter for stagnation
 
 diversity_scores = []
+
+# Timesteps
+initial_timestep = 1000  # Define an initial value for the timestep
+current_timestep = initial_timestep  # Define an initial timestep
+timestep_increment = 10  # Define how much to increase timesteps each time
+stagnation_threshold = 10  # Number of generations to consider for stagnation
+increment_interval = 5     # Check for stagnation every 5 generations
+
+
     
 # Evolutionary loop
 for generation in range(n_generations):
+    
+    # Load and preprocess data with current timestep
+    X = datasets.mackey_glass(current_timestep, sample_len=1000)
+    
     fitness_scores = [evaluate_fitness(genome) for genome in genome_population]
     
     #generation_best_score = min(fitness_scores, key=lambda x: x['rmse'])['rmse']
@@ -108,16 +121,23 @@ for generation in range(n_generations):
     #     print(f"Early stopping at generation {generation} due to lack of improvement.")
     #     break
     
-    if fitness_scores and fitness_scores[0]['rmse'] < previous_best_score:
-        previous_best_score = fitness_scores[0]['rmse']
-        stagnation_counter = 0
-    else:
-        stagnation_counter += 1
+    # Early stopping logic
+    # if fitness_scores and fitness_scores[0]['rmse'] < previous_best_score:
+    #     previous_best_score = fitness_scores[0]['rmse']
+    #     stagnation_counter = 0
+    # else:
+    #     stagnation_counter += 1
 
-    if stagnation_counter >= stagnation_threshold:
-        print(f"\nEarly stopping at generation {generation} due to lack of improvement.")
-        break
+    # if stagnation_counter >= stagnation_threshold:
+    #     print(f"\nEarly stopping at generation {generation} due to lack of improvement.")
+    #     break
     
+            
+    # Logic to increase timestep
+    #if should_increase_timestep(generation, best_fitness_scores, stagnation_threshold, increment_interval):
+    if should_increase_timestep(generation, best_rmse_scores, stagnation_threshold, increment_interval):
+        current_timestep += timestep_increment
+        print(f"Increasing timestep to {current_timestep}")
     
     best_rmse_scores.append(best_rmse)
     best_mae_scores.append(best_mae)
