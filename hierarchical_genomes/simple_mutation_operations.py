@@ -89,7 +89,7 @@ def mutate_connection(genome, max_node_nr):
         
     return genome
 
-def mutate_weight(genome, mutation_value):
+def mutate_weight_old(genome, mutation_value):
     """
     Takes a genome and a value by wich to mutate the weight
     Recursively chooses a random sub genome until it reaches a leaf node, then adds the mutation value to the weight at this gene.
@@ -102,6 +102,21 @@ def mutate_weight(genome, mutation_value):
         target_sub_genome = random.choice(genome)
         mutate_weight(target_sub_genome, mutation_value)
     return genome
+
+def mutate_weight(genome, mutation_value):
+    if isinstance(genome, list):
+        for i in range(len(genome)):
+            if isinstance(genome[i], list):
+                mutate_weight(genome[i], mutation_value)
+            else:
+                # Directly modify weights if the current structure is a connection gene
+                if i == 2:  # Assuming the third element is the weight
+                    genome[i] += mutation_value
+        return genome
+    else:
+        # Handle non-list genome formats if necessary
+        return genome
+
 
 
 def add_connection(genome, max_node_nr, mutation_probability):

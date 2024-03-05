@@ -1,59 +1,62 @@
 import numpy as np
-from reservoirpy import nodes, datasets, observables
-import reservoirpy as rpy
-import hierarchical_genomes as hg
+from reservoirpy import nodes, datasets
+from expt_helper_functions_v2 import (create_initial_genome, mutate_hox,transcribe_hierarchical_genome_to_weight_matrix, mae, mse)
 import matplotlib.pyplot as plt
-from expt_helper_functions_v2 import (create_initial_genome, select_best_genomes, reproduce, log_generation_results, analyze_results, mae, mse, calculate_diversity_score, should_increase_timestep)
+import copy
 
-# Main parameters setup
-population_size = 100
-n_generations = 200
-mutation_probability = 0.1
-num_input_nodes, num_output_nodes = 10, 10
-elitism_factor = 0.1
-num_elites = int(elitism_factor * population_size)
+import reservoirpy as rpy
+rpy.verbosity(0)
 
-# Initialize population
-genome_population = [create_initial_genome(num_input_nodes, num_output_nodes) for _ in range(population_size)]
+# Load the Mackey-Glass dataset
+X = datasets.mackey_glass(n_timesteps=1000, sample_len=2000)
+train_end = int(len(X) * 0.7)
+test_start = train_end + 1
 
-# Fitness evaluation function
-def evaluate_fitness(genome):
-    weight_matrix = hg.transcribe_hierarchical_genome_to_weight_matrix(genome)
-    esn = nodes.Reservoir(W=weight_matrix) >> nodes.Ridge(ridge=1e-6)
-    forecast = esn.fit(X[:train_end], X[1:train_end+1]).run(X[test_start:])
-    return {'rmse': observables.rmse(forecast, X[test_start:]), 'mae': mae(forecast, X[test_start:]), 'mse': mse(forecast, X[test_start:])}
+# Initialize the population
+population_size = 5
+genome = create_initial_genome(input_size=1, output_size=1, initial_connections=5)
+population = [copy.deepcopy(genome) for _ in range(population_size)]
+#population = [create_initial_genome(input_size=..., output_size=...) for _ in range(population_size)]
 
-# Evolutionary loop with timestep logic
-initial_timestep = 1000
-current_timestep = initial_timestep
-timestep_increment = 10
-increment_interval = 5
-best_rmse_scores, best_mae_scores, best_mse_scores, diversity_scores = [], [], [], []
 
-for generation in range(n_generations):
-    X = datasets.mackey_glass(current_timestep, sample_len=1000)
-    train_end = int(len(X) * 0.5)
-    test_start = train_end + 1
+# Run the evolutionary process
+best_fitness_scores = []
+for i in range(50):
+    fitness_scores = []
+    new_population = []
+    for genome in population:
+        mutated_genome = mutate_hox(copy.deepcopy(genome), 0.1)
+        new_population.append(mutated_genome)
+        weight_matrix = transcribe_hierarchical_genome_to_weight_matrix(mutated_genome)
+        esn = nodes.Reservoir(Win=np.ones((weight_matrix.shape[0], 1)), W=weight_matrix, bias=np.zeros((weight_matrix.shape[0], 1))) >> nodes.Ridge(ridge=1e-6)
+        
+        forecast = esn.fit(X[:train_end], X[1:train_end+1]).run(X[test_start:])
+        fitness_rmse = np.sqrt(mse(forecast, X[test_start:]))
+        fitness_mae = mae(forecast, X[test_start:])
+        
+        fitness_scores.append({'rmse': fitness_rmse, 'mae': fitness_mae})
+    
+    # Selection based on MAE
+    best_genome_index = np.argmin([score['mae'] for score in fitness_scores])
+    best_genome = new_population[best_genome_index]
+    best_fitness_scores.append(fitness_scores[best_genome_index])
+    
+        # Reproduction (cloning the best genome for the next generation)
+    population = [copy.deepcopy(best_genome) for _ in range(population_size)]
+    
+# Gather the best fitness scores for plotting
+best_rmse_scores = [score['rmse'] for score in best_fitness_scores]
+best_mae_scores = [score['mae'] for score in best_fitness_scores]
+best_mse_scores = [mse(score['mae'], X[test_start:]) for score in best_fitness_scores]
 
-    fitness_scores = [evaluate_fitness(genome) for genome in genome_population]
-    best_rmse = min(fitness_scores, key=lambda x: x['rmse'])['rmse']
-    best_mae = min(fitness_scores, key=lambda x: x['mae'])['mae']
-    best_mse = min(fitness_scores, key=lambda x: x['mse'])['mse']
-    best_rmse_scores.append(best_rmse)
-    best_mae_scores.append(best_mae)
-    best_mse_scores.append(best_mse)
+# Plotting the results
+plt.figure(figsize=(12, 6))
+plt.plot(best_rmse_scores, label='Best RMSE per Generation')
+plt.plot(best_mae_scores, label='Best MAE per Generation')
+plt.plot(best_mse_scores, label='Best MSE per Generation')
+plt.xlabel('Generation')
+plt.ylabel('Fitness Score')
+plt.title('Evolution of Fitness Scores Over Generations')
+plt.legend()
+plt.show()
 
-    if should_increase_timestep(generation, best_rmse_scores, 10, increment_interval):
-        current_timestep += timestep_increment
-        print(f"Increasing timestep to {current_timestep}")
-
-    selected_genomes = select_best_genomes(genome_population, fitness_scores, 5, elitism_factor)
-    current_diversity_score = calculate_diversity_score(genome_population)
-    diversity_scores.append(current_diversity_score)
-
-    new_population = reproduce(selected_genomes, population_size, mutation_probability, num_input_nodes, num_output_nodes, num_elites)
-    genome_population = new_population
-
-    log_generation_results(generation, selected_genomes, fitness_scores, "/Users/chaitravshetty/Downloads/Advanced-Genomes-for-Evolutionary-Computing-main 3/hierarchical_genomes/evolution_log.txt")
-
-analyze_results("/Users/chaitravshetty/Downloads/Advanced-Genomes-for-Evolutionary-Computing-main 3/hierarchical_genomes/evolution_log.txt", best_rmse_scores, best_mae_scores, best_mse_scores, diversity_scores)

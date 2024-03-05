@@ -1,0 +1,12 @@
+{
+    "population_size": 100,
+    "n_generations": 200,
+    "mutation_probability": 0.1,
+    "insertion_probability": 0.1,
+    "num_input_nodes": 10,
+    "num_output_nodes": 10,
+    "n_timesteps": 2000,
+    "train_split": 0.5,
+    "elitism_factor": 0.1
+  }
+  
