@@ -134,7 +134,7 @@ def mutate_genome_without_hox(genome):
     # Different mutation probabilities can be set here
     if random_variable < 0.3:
         # Simple mutation of weight between two nodes
-        print("Mutated Weight")
+        #print("Mutated Weight")
         mutation = "Weight"
 
         # Generate a random value to add to the weight
@@ -142,29 +142,31 @@ def mutate_genome_without_hox(genome):
 
         # Mutate the genome
         genome = mutate_weight(genome, mutation_value)
+        
+        
 
     elif random_variable < 0.4:
         # Add or remove a node
         random_variable = np.random.uniform(0,1)
         if random_variable < 0.5:
-            print("Add Node")
+            #print("Add Node")
             mutation = "Add Node"
             genome = mutation_add_node(genome, 0.5)
         else:
             if len(genome) > 2:
-                print("Remove Node")
+                #print("Remove Node")
                 mutation = "Remove Node"
                 genome = mutation_remove_node(genome)
 
     elif random_variable < 0.7:
         # Mutate a connection between two nodes
-        print("Mutate Connection")
+        #print("Mutate Connection")
         mutation = "Change Connection"
         genome = mutate_connection(genome, max_node_nr)
 
     else:
         # Adds a connection between two nodes
-        print("Add connection")
+        #print("Add connection")
         mutation = "Add Connection"
         max_node_nr = find_max_postive_int_in_nested_list(genome)
         genome = mutate_connection(genome, max_node_nr)
@@ -173,5 +175,26 @@ def mutate_genome_without_hox(genome):
     genome = compress_node_nr_difference(genome) 
 
     genome = delete_empty_lists(genome)
+    
+    # Log the mutated genome
+    print("mutated_genome:", genome)
+    
+    # Check for None values after mutation
+    check_for_none_in_genome(genome)
+
+    # Validation step to make sure no None values have been introduced
+    if any(g is None for g in genome):
+        raise ValueError("None value found after mutation")
 
     return genome, mutation
+
+
+def check_for_none_in_genome(genome):
+    """
+    Recursively checks if there is any None value in the nested genome list.
+    """
+    if genome is None:
+        return True
+    if isinstance(genome, (list, tuple)):
+        return any(check_for_none_in_genome(item) for item in genome)
+    return False

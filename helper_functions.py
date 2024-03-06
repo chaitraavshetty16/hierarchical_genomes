@@ -72,6 +72,16 @@ def find_max_postive_int_in_nested_list(nested_list, maximum=0):
             maximum = max(maximum, sub_maximum if sub_maximum is not None else 0)
     elif isinstance(nested_list, (int, float)):
         maximum = max(maximum, nested_list)
+    return int(maximum)  # Cast to int to ensure return value is integer
+
+    
+def find_max_postive_int_in_nested_list1(nested_list, maximum=0):
+    if isinstance(nested_list, list):
+        for sub_list in nested_list:
+            sub_maximum = find_max_postive_int_in_nested_list(sub_list, maximum)
+            maximum = max(maximum, sub_maximum if sub_maximum is not None else 0)
+    elif isinstance(nested_list, (int, float)):
+        maximum = max(maximum, nested_list)
     return maximum
 
 def find_min_postive_int_in_nested_list(nested_list, minimum = 0):
@@ -105,19 +115,17 @@ def find_min_postive_int_in_nested_list_old(nested_list, minimum = float("inf"))
     
 
 def find_connection_genes(genome):
-    """
-    Correctly finds and returns all connection genes within the genome.
-    Assumes that connection genes are structured as lists: [out_node, in_node, weight].
-    """
     connection_genes = []
-    # Recursively search for connection genes within the genome structure
     if isinstance(genome, list):
         for element in genome:
-            if isinstance(element, list) and len(element) == 3:  # Assuming a connection gene has exactly three elements
+            # If the element is a list of length 3, it's assumed to be a connection gene
+            if isinstance(element, list) and len(element) == 3:
                 connection_genes.append(element)
+            # If the element is a list, but not a connection gene, search recursively
             elif isinstance(element, list):
                 connection_genes.extend(find_connection_genes(element))
     return connection_genes
+
 
 
 def find_connection_genes_old(genome):
@@ -233,7 +241,7 @@ def compress_node_nr_difference_old(genome):
     return compressed_genome
 
 
-def swap_values_in_nested_list(nested_list, translator):
+def swap_values_in_nested_list_old(nested_list, translator):
     """
     Helper function for compress_node_nr_difference
     Swaps the node numbers in the original genome to the new node numbers.
@@ -250,6 +258,22 @@ def swap_values_in_nested_list(nested_list, translator):
             r = swap_values_in_nested_list(sub_list, translator)
             l.append(r)
         return l
+
+def swap_values_in_nested_list(nested_list, translator):
+    if type(nested_list) == int:
+        # Check if the current node number is in the translator before accessing it
+        if nested_list in translator:
+            return translator[nested_list]
+        else:
+            # Handle the case where the node number is not in translator
+            # For example, you could return the original node number, or handle it differently
+            return nested_list
+    elif type(nested_list) == float:
+        return nested_list
+    elif isinstance(nested_list, list):
+        l = [swap_values_in_nested_list(sub_list, translator) for sub_list in nested_list]
+        return l
+
 
 def delete_empty_lists(genome):
     """

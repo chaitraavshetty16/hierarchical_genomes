@@ -56,6 +56,8 @@ def mutation_add_node_old(genome, mutation_probability):
     return mutated
 
 def mutation_add_node(genome, mutation_probability):
+    mutated = False
+    
     max_node_nr = find_max_postive_int_in_nested_list(genome) + 1  # Adjusted to avoid IndexError
     if max_node_nr <= 1:  # Prevent mutation if insufficient nodes
         return genome
@@ -95,6 +97,42 @@ def mutation_remove_node(genome):
 ############################################################################################################
 
 def mutate_connection(genome, max_node_nr):
+    # Convert genome to a list if it's a tuple
+    if isinstance(genome, tuple):
+        genome = list(genome)
+    
+    # Check if the current genome represents a direct connection
+    if isinstance(genome, list) and len(genome) == 3 and isinstance(genome[0], int) and isinstance(genome[1], int):
+        # Apply mutation directly to this connection
+        random_variable = np.random.uniform(0, 1)
+        if random_variable < 0.5:
+            genome[0] = np.random.randint(0, max_node_nr + 1)
+        else:
+            genome[1] = np.random.randint(0, max_node_nr + 1)
+        return genome
+
+    # Recursive case: process sub-genomes
+    elif isinstance(genome, list):
+        # Check each element of the list
+        for i in range(len(genome)):
+            sub_genome = genome[i]
+            # Check if sub_genome is a direct connection or a list that could represent connections
+            if isinstance(sub_genome, (list, tuple)) and len(sub_genome) > 0:
+                if isinstance(sub_genome, tuple):
+                    # If it's a tuple, convert to list for mutation
+                    sub_genome = list(sub_genome)
+                # Recurse or mutate directly based on the sub_genome type
+                genome[i] = mutate_connection(sub_genome, max_node_nr)
+        return genome
+
+    # In case genome is not a list or a direct connection, return it unchanged
+    return genome
+
+
+
+
+
+def mutate_connection_old(genome, max_node_nr):
     # Ensure genome is in a mutable form
     if isinstance(genome, tuple):
         genome = list(genome)
@@ -115,18 +153,24 @@ def mutate_connection(genome, max_node_nr):
     # Convert back to tuple if needed
     return list(genome)
 
+
 def mutate_weight(genome, mutation_value):
-    # Ensure genome is a list for mutability
-    genome = list(genome)
+    # The mutation_value is received as an array, extract its first element to apply
+    mutation_value = mutation_value[0]  # Assuming mutation_value is a numpy array
     
-    if isinstance(genome[0], int) and isinstance(genome[1], int):
+    # Check if genome is directly a connection gene
+    if isinstance(genome, list) and len(genome) == 3 and all(isinstance(item, (int, float)) for item in genome[:2]):
+        # Directly mutate the weight of the connection gene
         genome[2] += mutation_value
-        genome[2] = float(genome[2])
-    else:
+        return genome
+    elif isinstance(genome, list):
+        # Recursively apply mutation to each item in the genome
         for i in range(len(genome)):
-            genome[i] = mutate_weight(list(genome[i]), mutation_value)
-    
+            if isinstance(genome[i], list):
+                genome[i] = mutate_weight(genome[i], [mutation_value])  # Pass mutation_value as array
     return genome
+
+
 
 def mutate_weight_old(genome, mutation_value):
     """
