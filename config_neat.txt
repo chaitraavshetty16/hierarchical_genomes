@@ -6,7 +6,7 @@ reset_on_extinction   = False
 
 [DefaultGenome]
 # Node genes
-num_inputs            = 10
+num_inputs            = 1
 num_outputs           = 1
 num_hidden            = 0
 initial_connection    = full_direct
@@ -33,9 +33,45 @@ conn_mutate_power     = 0.5
 conn_mutate_rate      = 0.8
 conn_enable_rate      = 0.25
 conn_disable_rate     = 0.25
+enabled_default       = True
+enabled_mutate_rate  = 0.01
+
+compatibility_threshold = 3.0
+compatibility_disjoint_coefficient = 1.0
+compatibility_weight_coefficient = 0.5
+
+# Mutation rates
+node_add_prob         = 0.03
+node_delete_prob      = 0.02
+
+# New parameter for node response
+response_init_mean    = 1.0
+response_init_stdev   = 0.0
+response_replace_rate = 0.1
+response_mutate_rate = 0.1
+response_mutate_power = 0.5
+response_max_value    = 5.0  
+response_min_value    = -5.0
+
+# New parameters for aggregation function mutation
+aggregation_options    = max  
+aggregation_default    = sum                     
+aggregation_mutate_rate = 0.05 
+
+# Weight parameters
+weight_init_mean      = 0.0
+weight_init_stdev     = 1.0
+weight_max_value      = 5.0
+weight_min_value      = -5.0
+weight_mutate_rate    = 0.8
+weight_mutate_power   = 0.5
+weight_replace_rate   = 0.1
+
+
 
 [DefaultSpeciesSet]
 compatibility_threshold = 3.0
+
 
 [DefaultStagnation]
 species_fitness_func = max
@@ -45,3 +81,8 @@ species_elitism      = 2
 [DefaultReproduction]
 elitism              = 2
 survival_threshold   = 0.2
+
+[Compatibility]
+compatibility_threshold = 3.0
+compatibility_disjoint_coefficient = 1.0
+compatibility_weight_coefficient = 0.5
