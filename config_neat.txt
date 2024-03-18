@@ -6,7 +6,7 @@ reset_on_extinction   = False
 
 [DefaultGenome]
 # Node genes
-num_inputs            = 1
+num_inputs            = 100
 num_outputs           = 1
 num_hidden            = 0
 initial_connection    = full_direct
